@@ -3,6 +3,7 @@ package com.example.myyoutube.presentation
 import android.annotation.SuppressLint
 import android.content.pm.ActivityInfo
 import android.os.Bundle
+import android.util.Log
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
@@ -13,10 +14,14 @@ import androidx.core.view.WindowInsetsControllerCompat
 import androidx.fragment.app.Fragment
 import androidx.fragment.app.viewModels
 import androidx.media3.common.MediaItem
+import androidx.media3.common.PlaybackException
+import androidx.media3.common.Player
 import androidx.media3.exoplayer.ExoPlayer
 import androidx.navigation.fragment.findNavController
 import androidx.navigation.fragment.navArgs
 import com.example.myyoutube.databinding.FragmentVideoPlaybackBinding
+import com.example.myyoutube.utils.showSnackbar
+import java.net.UnknownHostException
 
 
 class VideoPlaybackFragment: Fragment() {
@@ -51,9 +56,9 @@ class VideoPlaybackFragment: Fragment() {
         requireActivity().onBackPressedDispatcher.addCallback(viewLifecycleOwner, object : OnBackPressedCallback(true) {
             override fun handleOnBackPressed() {
                 if (isFullScreen()) {
-                    toggleFullScreen() // Выходим из полноэкранного режима
+                    toggleFullScreen()
                 } else {
-                    findNavController().popBackStack() // Закрываем фрагмент
+                    findNavController().popBackStack()
                 }
             }
         })
@@ -106,6 +111,16 @@ class VideoPlaybackFragment: Fragment() {
             exoPlayer.playWhenReady = viewModel.playWhenReady
             exoPlayer.seekTo(viewModel.playbackPosition)
             exoPlayer.prepare()
+
+            exoPlayer.addListener(object : Player.Listener {
+                override fun onPlayerError(error: PlaybackException) {
+                    if (error.cause is UnknownHostException) {
+                        showSnackbar("Ошибка: Нет подключения к интернету")
+                    } else {
+                        showSnackbar("Ошибка воспроизведения: ${error.message}")
+                    }
+                }
+            })
         }
     }
 
