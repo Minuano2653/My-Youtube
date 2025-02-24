@@ -7,15 +7,21 @@ import android.view.View
 import android.view.ViewGroup
 import androidx.fragment.app.Fragment
 import androidx.fragment.app.viewModels
+import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.lifecycleScope
+import androidx.lifecycle.repeatOnLifecycle
 import androidx.navigation.fragment.findNavController
-import androidx.recyclerview.widget.DividerItemDecoration
 import androidx.recyclerview.widget.LinearLayoutManager
 import androidx.recyclerview.widget.RecyclerView
 import com.example.myyoutube.databinding.FragmentVideoListBinding
+import com.example.myyoutube.domain.entities.Video
 import com.google.android.material.snackbar.Snackbar
 import dagger.hilt.android.AndroidEntryPoint
 import kotlinx.coroutines.launch
+import com.example.myyoutube.utils.Result
+import com.example.myyoutube.utils.showSnackbar
+import kotlinx.coroutines.flow.collectLatest
+
 
 @AndroidEntryPoint
 class VideoListFragment: Fragment() {
@@ -45,12 +51,12 @@ class VideoListFragment: Fragment() {
 
     }
 
-    private fun hideLoading() {
-        binding.swipeRefreshLayout.isRefreshing = false
+    private fun showLoading() {
+        binding.swipeRefreshLayout.isRefreshing = true
     }
 
-    private fun showSnackbar(message: String) {
-        Snackbar.make(requireView(), message, Snackbar.LENGTH_SHORT).show()
+    private fun hideLoading() {
+        binding.swipeRefreshLayout.isRefreshing = false
     }
 
     private fun setSwipeRefreshListener() {
@@ -65,6 +71,18 @@ class VideoListFragment: Fragment() {
         }
     }
 
+    private fun launchVideoPlaybackFragment(video: Video) {
+        val videoList = videoListAdapter.currentList
+        val videoIndex = videoList.indexOf(video)
+
+        findNavController().navigate(
+            VideoListFragmentDirections.actionVideoListFragmentToVideoPlaybackFragment(
+                videoIndex,
+                videoList.toTypedArray()
+            )
+        )
+    }
+
     private fun setupRecyclerView() {
         val linearLayoutManager = LinearLayoutManager(requireContext(), RecyclerView.VERTICAL, false)
         videoListAdapter = VideoListAdapter()
@@ -76,33 +94,40 @@ class VideoListFragment: Fragment() {
     }
 
     private fun observeViewModel() {
-        viewLifecycleOwner.lifecycleScope.launch {
-            viewModel.videos.collect { videoList ->
-                videoListAdapter.submitList(videoList)
-                hideLoading()
-                Log.d("ObserveViewModel", videoList.toString())
+        lifecycleScope.launch {
+            repeatOnLifecycle(Lifecycle.State.STARTED) {
+                viewModel.videos.collect { result ->
+                    when (result) {
+                        is Result.Loading -> showLoading()
+                        is Result.Success -> {
+                            videoListAdapter.submitList(result.data)
+                            hideLoading()
+                        }
+                        is Result.Error -> {
+                            hideLoading()
+                        }
+                    }
+                }
             }
         }
 
-        viewLifecycleOwner.lifecycleScope.launch {
-            viewModel.error.collect { errorMessageEvent ->
-                errorMessageEvent.getContentIfNotHandled()?.let { showSnackbar(it) }
-                hideLoading()
+        lifecycleScope.launch {
+            repeatOnLifecycle(Lifecycle.State.STARTED) {
+                viewModel.error.collect { event ->
+                    event.getContentIfNotHandled()?.let { message ->
+                        hideLoading()
+                        showSnackbar(message)
+                    }
+                }
             }
         }
 
-        viewLifecycleOwner.lifecycleScope.launch {
-            viewModel.shouldLaunchVideoPlaybackFragment.collect { shouldNavigateEvent ->
-                shouldNavigateEvent.getContentIfNotHandled()?.let { video ->
-                    val videoList = videoListAdapter.currentList
-                    val videoIndex = videoList.indexOf(video)
-
-                    findNavController().navigate(
-                        VideoListFragmentDirections.actionVideoListFragmentToVideoPlaybackFragment(
-                            videoIndex,
-                            videoList.toTypedArray()
-                        )
-                    )
+        lifecycleScope.launch {
+            repeatOnLifecycle(Lifecycle.State.STARTED) {
+                viewModel.shouldLaunchVideoPlaybackFragment.collect { event ->
+                    event.getContentIfNotHandled()?.let { video ->
+                        launchVideoPlaybackFragment(video)
+                    }
                 }
             }
         }

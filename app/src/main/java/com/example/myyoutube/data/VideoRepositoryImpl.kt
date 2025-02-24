@@ -5,13 +5,15 @@ import com.example.myyoutube.data.network.RemoteDataSource
 import com.example.myyoutube.data.network.toVideo
 import com.example.myyoutube.domain.entities.Video
 import com.example.myyoutube.domain.repositories.VideoRepository
-import com.example.myyoutube.exceptions.GeneralException
-import com.example.myyoutube.exceptions.NetworkException
-import com.example.myyoutube.exceptions.ServerException
 import retrofit2.HttpException
 import java.io.IOException
 import javax.inject.Inject
 import javax.inject.Singleton
+import com.example.myyoutube.utils.Result
+import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.catch
+import kotlinx.coroutines.flow.flow
+
 
 @Singleton
 class VideoRepositoryImpl @Inject constructor(
@@ -19,26 +21,24 @@ class VideoRepositoryImpl @Inject constructor(
     private val localDataSource: LocalDataSource
 ): VideoRepository {
 
-    override suspend fun getVideoList(): List<Video> {
-        return try {
+    override suspend fun getVideoList(): Flow<Result<List<Video>>> = flow {
+        emit(Result.Loading)
+        val cachedVideos = localDataSource.getVideos().takeIf { it.isNotEmpty() }
+        cachedVideos?.let { emit(Result.Success(it)) }
 
-            val response = remoteDataSource.getVideos()
-            val videoList = response.map { it.toVideo() }
+        val response = remoteDataSource.getVideos()
+        val videoList = response.map { it.toVideo() }
+        localDataSource.saveVideos(videoList)
+        emit(Result.Success(videoList))
+    }.catch { e ->
+        emit(Result.Error(handleError(e)))
+    }
 
-            localDataSource.saveVideos(videoList)
-
-            videoList
-        } catch (e: IOException) {
-            val cachedVideos = localDataSource.getVideos()
-            if (cachedVideos.isNotEmpty()) {
-                cachedVideos
-            } else {
-                throw NetworkException("Проблемы с сетью. Проверьте подключение к интернету.")
-            }
-        } catch (e: HttpException) {
-            throw ServerException("Ошибка сервера: ${e.code()}")
-        } catch (e: Exception) {
-            throw GeneralException("Неизвестная ошибка")
+    private fun handleError(e: Throwable): String {
+        return when (e) {
+            is IOException -> "Проблемы с сетью. Проверьте подключение к интернету."
+            is HttpException -> "Ошибка сервера: ${e.code()}"
+            else -> "Неизвестная ошибка"
         }
     }
 }
