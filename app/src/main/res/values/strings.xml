@@ -1,0 +1,5 @@
+<resources>
+    <string name="app_name">My Youtube</string>
+    <string name="thumbnail_content_decription">thumbnail</string>
+    <string name="screen_title_tv">Видео</string>
+</resources>

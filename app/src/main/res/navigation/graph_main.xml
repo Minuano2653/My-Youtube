@@ -1,0 +1,28 @@
+<?xml version="1.0" encoding="utf-8"?>
+<navigation
+    xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    xmlns:tools="http://schemas.android.com/tools"
+    app:startDestination="@id/videoListFragment"
+    android:id="@+id/graph_main">
+    <fragment
+        android:id="@+id/videoListFragment"
+        android:name="com.example.myyoutube.presentation.VideoListFragment"
+        android:label="fragment_video_list"
+        tools:layout="@layout/fragment_video_list" >
+        <action
+            android:id="@+id/action_videoListFragment_to_videoPlaybackFragment"
+            app:destination="@id/videoPlaybackFragment" />
+    </fragment>
+    <fragment
+        android:id="@+id/videoPlaybackFragment"
+        android:name="com.example.myyoutube.presentation.VideoPlaybackFragment"
+        android:label="VideoPlaybackFragment" >
+        <argument
+            android:name="videoIndex"
+            app:argType="integer" />
+        <argument
+            android:name="videoList"
+            app:argType="com.example.myyoutube.domain.entities.Video[]" />
+    </fragment>
+</navigation>
